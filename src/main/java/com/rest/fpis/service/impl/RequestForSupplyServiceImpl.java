@@ -3,6 +3,7 @@ package com.rest.fpis.service.impl;
 import com.rest.fpis.dao.ItemOfRequestRepository;
 import com.rest.fpis.dao.RequestForSupplyRepository;
 import com.rest.fpis.domain.ItemOfRequestEntity;
+import com.rest.fpis.domain.ItemOfRequestKey;
 import com.rest.fpis.domain.RequestForSupplyEntity;
 import com.rest.fpis.service.RequestForSupplyService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -30,12 +31,30 @@ public class RequestForSupplyServiceImpl implements RequestForSupplyService{
     @Override
     public RequestForSupplyEntity saveRequestForSupply(RequestForSupplyEntity requestForSupplyEntity) {
         List<ItemOfRequestEntity> items = requestForSupplyEntity.getItems();
-        for (ItemOfRequestEntity item:items) {
-            item.setRequestForSupplyEntity(requestForSupplyEntity);
-            itemOfRequestRepository.save(item);
+        Iterable<ItemOfRequestEntity> allItems = itemOfRequestRepository.findAll();
+        RequestForSupplyEntity request = null;
+        if(requestForSupplyRepository.findById(requestForSupplyEntity.getId()).isPresent()){
+            for(ItemOfRequestEntity item: allItems){
+                if(item.getId().getRequestForSupply()==requestForSupplyEntity.getId()){
+                    ItemOfRequestKey key = new ItemOfRequestKey(requestForSupplyEntity.getId(), item.getId().getOrderNumber());
+                    itemOfRequestRepository.deleteById(key);
+                }
+            }
+            for (ItemOfRequestEntity item:items) {
+                item.setRequestForSupplyEntity(requestForSupplyEntity);
+                itemOfRequestRepository.save(item);
+            }
+
+            request = requestForSupplyRepository.save(requestForSupplyEntity);
+        } else{
+            List<ItemOfRequestEntity> list = requestForSupplyEntity.getItems();
+            requestForSupplyEntity.setItems(null);
+            request = requestForSupplyRepository.save(requestForSupplyEntity);
+            for (ItemOfRequestEntity item:list) {
+                item.setRequestForSupplyEntity(request);
+                itemOfRequestRepository.save(item);
+            }
         }
-        RequestForSupplyEntity request = requestForSupplyRepository.save(requestForSupplyEntity);
-        request.setItems(items);
 
         return request;
     }
